@@ -1,0 +1,27 @@
+#!/bin/bash
+
+DOMAIN="$1"
+ASLIST="$2"
+IFS='
+'
+
+if [ -z $DOMAIN ]; then
+	echo "You must specify a domain"
+	exit 1
+fi
+
+if [[ ( -z $ASLIST ) || ! ( -f $ASLIST ) ]]; then
+	echo "You must provide a valid Spamassassin blacklist/whitelist"
+	exit 1
+fi
+
+for LINE in `cat $ASLIST`; do
+	TYPE=`echo $LINE|cut -f1 -d_|tr [:upper:] [:lower:]`
+	OBJECT=`echo $LINE|cut -f2 -d" "`
+
+	if [ "$TYPE" = "whitelist" ]; then
+		zmprov md $DOMAIN +amavisWhitelistSender $OBJECT
+	elif [ "$TYPE" = "blacklist" ]; then
+		zmprov md $DOMAIN +amavisBlacklistSender $OBJECT
+	fi
+done
