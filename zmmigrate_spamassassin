@@ -15,13 +15,43 @@ if [[ ( -z $ASLIST ) || ! ( -f $ASLIST ) ]]; then
 	exit 1
 fi
 
+# Get current blacklist and whitelist entries
+echo "Reading existing entries..."
+CURRENTWHITE=`zmprov gd $DOMAIN amavisWhitelistSender|grep -Ev '(^#|^$)'|cut -f2 -d" "`
+CURRENTBLACK=`zmprov gd $DOMAIN amavisBlacklistSender|grep -Ev '(^#|^$)'|cut -f2 -d" "`
+
+echo "Populating amavis lists..."
 for LINE in `cat $ASLIST`; do
 	TYPE=`echo $LINE|cut -f1 -d_|tr [:upper:] [:lower:]`
 	OBJECT=`echo $LINE|cut -f2 -d" "`
 
+	# Replace *@domain with @domain
+	if [ "`echo $OBJECT|cut -c1`" = "*" ]; then
+		OBJECT=`echo $OBJECT|cut -c2-`
+	fi
+
+	# Add new object to the whitelist
 	if [ "$TYPE" = "whitelist" ]; then
-		zmprov md $DOMAIN +amavisWhitelistSender $OBJECT
+
+		# Check if the object is already on the list
+		echo "$CURRENTWHITE" | grep "^$OBJECT$" > /dev/null 2>&1
+		if [ $? != 0 ]; then
+			echo "Whitelist -> $DOMAIN -> $OBJECT"
+			zmprov md $DOMAIN +amavisWhitelistSender $OBJECT
+		else
+			echo "[skipped ] Whitelist -> $DOMAIN -> $OBJECT"
+		fi
+
+	# Add new object to the blacklist
 	elif [ "$TYPE" = "blacklist" ]; then
-		zmprov md $DOMAIN +amavisBlacklistSender $OBJECT
+		
+		# Check if the object is already on the list
+		echo "$CURRENTBLACK" | grep "^$OBJECT$" > /dev/null 2>&1
+		if [ $? != 0 ]; then
+			echo "Blacklist -> $DOMAIN -> $OBJECT"
+			zmprov md $DOMAIN +amavisBlacklistSender $OBJECT
+		else
+			echo "[skipped] Blacklist -> $DOMAIN -> $OBJECT"
+		fi
 	fi
 done
